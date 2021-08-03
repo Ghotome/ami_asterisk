@@ -1,6 +1,5 @@
 import datetime
 import json
-import os
 import re
 import telnetlib
 
@@ -14,54 +13,11 @@ telnet_session.write("Action:login".encode('ascii') + b"\n"
                      + secret.encode('ascii') + b"\n\n")
 
 current_string = ''
-parsed_string = {}
+result = {}
 event_dict = {}
-
-
-# noinspection PyGlobalUndefined
-
-
-def incoming_call_logging(result):
-    global file
-    pid = 1
-    caller_number = ''
-    print("DEBUG: ALL EVENTS LOG -- " + str(result['result']))
-    if ('Answer' in result['result'].values()) is True:
-        pid = os.fork()
-        caller_number = str(result['result']['CallerIDNum'])
-
-    print("DEBUG: PID -- " + str(pid))
-    if pid == 0:
-        print("DEBUG: CALLER NUMBER -- " + caller_number)
-        if ('CallerIDNum' in result['result']) is True:
-            if ((result['result']['CallerIDNum'] == caller_number or
-                 result['result']['CallerIDNum'] == "+" + str(caller_number)) and
-                    (result['result']['Event'] == 'Newstate' or
-                     result['result']['Event'] == 'DialState' or
-                     result['result']['Event'] == 'Newexten' or
-                     result['result']['Event'] == 'BridgeEnter' or
-                     result['result']['Event'] == 'Hangup')):
-                if ('Answer' in result['result'].values()) is True:
-                    print("DEBUG: PASSED CHECK - ANSWER")
-                    print("DEBUG: RESULT -- " + str(result['result']))
-                    file = open('/home/fishhead/Desktop/test/' + result['result']['CallerIDNum'] + "_"
-                                + str(
-                        datetime.datetime.utcfromtimestamp(float(result['result']['Timestamp']))),
-                                'a')
-                    file.write(str(result['result']) + "\n\n")
-
-                elif ('Hangup' in result['result'].values()) is True:
-                    print("DEBUG: PASSED CHECK - HANGUP")
-                    print("DEBUG: RESULT -- " + str(result['result']))
-                    file.write(str(result['result']) + "\n\n")
-
-                else:
-                    print('DEBUG: PASSED CHECK - ANOTHER')
-                    print("DEBUG: RESULT -- " + str(result['result']))
-                    file.write(str(result['result']) + "\n\n")
-    else:
-        pass
-
+incoming_calls = {}
+outgoing_calls = {}
+timestamp = ''
 
 while True:
     event_string = ''
@@ -96,11 +52,71 @@ while True:
         event_string = event_string.replace('}, }', '}}')
 
         try:
-            parsed_string = json.loads(event_string)
-            print("DEBUG: CURRENT PARSED LINE -- " + str(parsed_string))
+
+            result = json.loads(event_string)
+            print("DEBUG: CURRENT LINE -- " + str(result['result']))
+
+            # INCOMING CALLS
+
+            if ('Answer' in result['result'].values()) is True:
+                timestamp = datetime.datetime.fromtimestamp(float(result['result']['Timestamp'])) \
+                    .strftime("%Y-%m-%d_%H:%M:%S")
+                incoming_calls[result['result']['Channel']] = str(result['result']) + " ///DELIMITER/// "
+                print('DEBUG: INCOMING CALL STARTED -- ' + str(incoming_calls[result['result']['Channel']]))
+
+            if ('Channel' in result['result']) is True \
+                    and not ('Answer' in result['result'].values()) is True \
+                    and (result['result']['Channel'] in incoming_calls) is True:
+
+                if ('Answer' in result['result'].values()) is False \
+                        and ('Hangup' in result['result'].values()) is False \
+                        and (result['result']['Channel'] in incoming_calls) is True:
+                    print("DEBUG: INCOMING CALL - ANY EVENTS -- "
+                          + str(incoming_calls[result['result']['Channel']]))
+                    incoming_calls[result['result']['Channel']] += str(result['result']) + " ///DELIMITER/// "
+
+                if ('Hangup' in result['result'].values()) is True:
+                    if result['result']['ConnectedLineNum'] == '<unknown>' and \
+                            result['result']['CallerIDNum'] != '<unknown>':
+                        file = open('/home/fishhead/Desktop/test/INCOMING_'
+                                    + result['result']['CallerIDNum'] + str(timestamp), 'a')
+                        incoming_calls[result['result']['Channel']] += str(result['result']) + " ///DELIMITER/// "
+                        print(
+                            'DEBUG: INCOMING CALL FINISHED 1 -- ' + str(incoming_calls[result['result']['Channel']]))
+                        file.write(incoming_calls[result['result']['Channel']].replace(' ///DELIMITER/// ', '\n\n'))
+                        file.close()
+                        incoming_calls.pop(result['result']['Channel'], None)
+
+                    elif result['result']['ConnectedLineNum'] != '<unknown>' and \
+                            result['result']['CallerIDNum'] == '<unknown>':
+                        file = open('/home/fishhead/Desktop/test/INCOMING_'
+                                    + result['result']['ConnectedLineNum'] + str(timestamp), 'a')
+                        incoming_calls[result['result']['Channel']] += str(
+                            result['result']) + " ///DELIMITER/// "
+                        print(
+                            'DEBUG: INCOMING CALL FINISHED 2 -- ' + str(
+                                incoming_calls[result['result']['Channel']]))
+                        file.write(
+                            incoming_calls[result['result']['Channel']].replace(' ///DELIMITER/// ', '\n\n'))
+                        file.close()
+                        incoming_calls.pop(result['result']['Channel'], None)
+                    else:
+                        file = open('/home/fishhead/Desktop/test/INCOMING_'
+                                    + result['result']['CallerIDNum'] + str(timestamp), 'a')
+                        incoming_calls[result['result']['Channel']] += str(
+                            result['result']) + " ///DELIMITER/// "
+                        print(
+                            'DEBUG: INCOMING CALL FINISHED 3 -- ' + str(
+                                incoming_calls[result['result']['Channel']]))
+                        file.write(
+                            incoming_calls[result['result']['Channel']].replace(' ///DELIMITER/// ', '\n\n'))
+                        file.close()
+                        incoming_calls.pop(result['result']['Channel'], None)
+
+            # OUTGOING CALLS
+
 
         except json.decoder.JSONDecodeError:
-            print("JSON Decode Error, разобраться позже")
+            print("JSON Decode Error")
 
-        incoming_call_logging(parsed_string)
         current_string = ''
