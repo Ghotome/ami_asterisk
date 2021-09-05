@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import re
+import sys
 import telnetlib
 
 import requests
@@ -43,6 +44,8 @@ file = {}
 duration = {}
 duration_result = {}
 count = {}
+login = {}
+lid = {}
 
 while True:
     event_string = ''
@@ -78,7 +81,8 @@ while True:
 
             result = json.loads(event_string)
             if settings.DEBUG:
-                print("DEBUG: CURRENT LINE -- " + str(result['result']))
+                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                      + "DEBUG: CURRENT LINE -- " + str(result['result']))
             else:
                 continue
             if 'Linkedid' in result['result']:
@@ -118,259 +122,239 @@ while True:
                     else:
                         client_number[result['result']['Linkedid']] = result['result']['CallerIDNum']
 
-                    record_name[result['result']['Linkedid']] = datetime.datetime.now().strftime('%Y-%m-%d-%H%M') \
-                                                                + "-" + client_number[result['result']['Linkedid']] \
-                                                                + ".wav"
                     if '<unknown>' in result['result']['CallerIDName']:
-                        subscriber_name[result['result']['Linkedid']] = 'АБОНЕНТ НЕ НАЙДЕН'
+                        lid[result['result']['Linkedid']] = settings.get_elma_lid_id(
+                            str(client_number[result['result']['Linkedid']]))
+                        if lid[result['result']['Linkedid']] == '':
+                            subscriber_name[result['result']['Linkedid']] = "[Найти]" \
+                                                                            + "(" \
+                                                                            + settings.elma_settings[
+                                                                                'lid_search'] \
+                                                                            + client_number[
+                                                                                result['result']['Linkedid']] \
+                                                                            + '"%7D' \
+                                                                            + ")" + "  " \
+                                                                                    "" \
+                                                                            + 'или [создать]' + "(" \
+                                                                            + settings.elma_settings[
+                                                                                'lid_create'] + ") лид"
+                        else:
+                            subscriber_name[result['result']['Linkedid']] = '[Лид: ' + \
+                                                                            lid[result['result']['Linkedid']][1] + ']' \
+                                                                            + "(" + settings.elma_settings['lid_link'] \
+                                                                            + lid[result['result']['Linkedid']][0] \
+                                                                            + "))"
                     else:
-                        subscriber_name[result['result']['Linkedid']] = result['result']['CallerIDName']
+                        login[result['result']['Linkedid']] = str(client_number[result['result']['Linkedid']])
+                        login[result['result']['Linkedid']] = settings.get_abills_uid(
+                            str(login[result['result']['Linkedid']]))
+                        subscriber_name[result['result']['Linkedid']] = '[Абонент: ' \
+                                                                        + str(login[result['result']['Linkedid']][0]) \
+                                                                        + ", " \
+                                                                        + str(login[result['result']['Linkedid']][1]) \
+                                                                        + ']' \
+                                                                        + '(' + settings.abills_settings[
+                                                                            'abon_link'] + str(
+                            login[result['result']['Linkedid']][2]) + ')'
+                        lid[result['result']['Linkedid']] = settings.get_elma_lid_id(
+                            str(client_number[result['result']['Linkedid']]))
+                        if lid[result['result']['Linkedid']] == '':
+                            lid[result['result']['Linkedid']] = ''
+                        else:
+                            lid[result['result']['Linkedid']] = [lid[result['result']['Linkedid']][0]]
+
+                    incoming_calls[result['result']['Linkedid']] = "/event/" \
+                                                                   + "Поступил новый звонок" \
+                                                                   + " ///DELIMITER/// " \
+                                                                   + "/status/" \
+                                                                   + "Звонок начат" \
+                                                                   + " ///DELIMITER/// " \
+                                                                   + "/time/" \
+                                                                   + "00:00" \
+                                                                   + " ///DELIMITER/// "
 
                     if settings.DEBUG:
-                        print("DEBUG: INCOMING CALL STARTED WITH VALUES: \nCLIENT NUM: "
-                              + client_number[result['result']['Linkedid']]
-                              + "\nRECORD NAME: " + record_name[result['result']['Linkedid']])
+                        print(str(datetime.datetime.now().strftime(
+                            "%Y-%m-%d %M:%S -- ")) + "DEBUG: INCOMING CALL STARTED WITH VALUES: \nCLIENT NUM: "
+                              + client_number[result['result']['Linkedid']])
                     else:
                         continue
 
-                    incoming_calls[result['result']['Linkedid']] = "/event/" + "Входящий звонок от " \
-                                                                   + str(client_number[result['result']['Linkedid']]) \
-                                                                   + " ///DELIMITER/// " \
-                                                                   + "/status/" + "Звонок начат" \
-                                                                   + " ///DELIMITER/// " \
-                                                                   + "/time/" + "00:00" \
-                                                                   + " ///DELIMITER/// "
+            if ('Hangup' in result['result'].values()) is True and \
+                    ('BUSY' in result['result'].values()) is False \
+                    and result['result']['Linkedid'] in incoming_calls:
 
-            if ('Linkedid' in result['result']) is True:
-                if (result['result']['Linkedid'] in incoming_calls) is True \
-                        and (result['result']['Linkedid'] in outgoing_calls) is False:
+                end_timestamp[result['result']['Linkedid']] = int(str(result['result']['Timestamp']) \
+                                                                  .split('.')[0])
+                employers = settings.get_employers_list()
+                if settings.DEBUG:
+                    print(str(datetime.datetime.now().strftime(
+                        "%Y-%m-%d %M:%S -- ")) + "DEBUG: EMPLOYERS LIST: " + str(employers))
+                else:
+                    continue
 
-                    if ('MixMonitorStart' in result['result'].values()) is False \
-                            and ('Hangup' in result['result'].values()) is False \
-                            and ('SoftHangupRequest' in result['result'].values()) is False \
-                            and ('BridgeDestroy' in result['result'].values()) is False \
-                            and ('BridgeLeave' in result['result'].values()) is False \
-                            and ('QueueMemberStatus' in result['result'].values()) is False \
-                            and ('DeviceStateChange' in result['result'].values()) is False \
-                            and (result['result']['Linkedid'] in incoming_calls) is True:
+                cdr_result = settings.get_cdr_records(result['result']['Linkedid'])
 
-                        timestamp_any_events = datetime.datetime.fromtimestamp(float(result['result']['Timestamp'])) \
-                            .strftime("%H:%M:%S")
-                        event_timestamp[result['result']['Linkedid']] = int(str(result['result']['Timestamp']) \
-                                                                            .split('.')[0])
+                for records in cdr_result:
 
-                        if 'BridgeEnter' in result['result']['Event']:
-                            if ' ' not in result['result']['ConnectedLineName']:
-                                event_name[result['result']['Linkedid']] = 'Разговор с оператором ' \
-                                                                           + result['result']['ConnectedLineName']
-                                dial_status[result['result']['Linkedid']] = 'Звонок в процессе'
-                            else:
-                                event_name[result['result']['Linkedid']] = 'Разговор с оператором ' \
-                                                                           + result['result']['CallerIDName']
-                                dial_status[result['result']['Linkedid']] = 'Звонок в процессе'
-                        elif 'MusicOnHoldStart' in result['result']['Event']:
-                            event_name[result['result']['Linkedid']] = 'Звонок переведён'
-                            dial_status[result['result']['Linkedid']] = 'Звонок на удержании'
-                        elif 'QueueCallerJoin' in result['result']['Event']:
-                            if result['result']['Queue'] == 'queue_softphone':
-                                event_name[result['result']['Linkedid']] = 'Звонок попал в очередь к техподдержке'
-                                dial_status[result['result']['Linkedid']] = 'Начаты попытки дозвониться'
-                            elif result['result']['Queue'] == 'queue_phone_manager':
-                                event_name[result['result']['Linkedid']] = 'Звонок попал в очередь к коммерческому'
-                                dial_status[result['result']['Linkedid']] = 'Начаты попытки дозвониться'
-                        elif 'NewConnectedLine' in result['result']['Event']:
-                            if ' ' not in result['result']['ConnectedLineName']:
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + result['result']['ConnectedLineName']
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
-                            else:
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + result['result']['CallerIDName']
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
-                        elif 'DialStatus' in result['result']:
-                            if 'BUSY' in result['result']['DialStatus']:
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + str(result['result']['DestCallerIDName'])
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
-                            elif 'RING' in result['result']['DialStatus']:
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + str(result['result']['DestCallerIDName'])
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
-                            elif 'ANSWER' in result['result']['DialStatus']:
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + str(result['result']['DestCallerIDName'])
-                                dial_status[result['result']['Linkedid']] = 'Звонок в процессе'
-                            elif 'NOANSWER' in result['result']['DialStatus']:
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + str(result['result']['DestCallerIDName'])
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
-                            elif 'Up' in result['result']['DialStatus']:
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + str(result['result']['DestCallerIDName'])
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
+                    # GET STATUS
+                    if records['status'] == 'BUSY':
+                        dial_status[result['result']['Linkedid']] = 'Оператор занят'
+                    elif records['status'] == 'NO ANSWER':
+                        dial_status[result['result']['Linkedid']] = 'Оператор не отвечает'
+                    elif records['status'] == 'ANSWERED':
+                        dial_status['status'] = 'Отвечен'
+                    elif records['status'] == 'FAILED':
+                        dial_status['status'] = 'Ошибка во время звонка'
+                    else:
+                        dial_status['status'] = 'Неизвестный статус'
+
+                    # GET EVENT
+                    if records['lastapp'] != 'Hangup':
+                        if records['lastapp'] == 'Queue':
+                            event_name[result['result']['Linkedid']] = 'Звонок оператору - ' \
+                                                                       + str(records['dstchannel']) \
+                                                                           .split('/')[1] \
+                                                                           .split('-')[0]
                         else:
-                            if '<unknown>' not in str(result['result']['CallerIDName']) and \
-                                    ' ' not in str(result['result']['CallerIDName']):
-                                event_name[result['result']['Linkedid']] = 'Звонок оператору ' \
-                                                                           + str(result['result']['CallerIDName'])
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
-                                if settings.DEBUG:
-                                    print("DEBUG: UNKNOWN STATUS >> DEFAULT USED: " + str(result))
-                                else:
-                                    continue
+                            event_name[result['result']['Linkedid']] = 'Неизвестное событие'
+
+                    # GET EVENT DURATION
+                    if records['latency'] != 0:
+                        event_timestamp[result['result']['Linkedid']] = str(records['latency'])
+                    else:
+                        event_timestamp[result['result']['Linkedid']] = '0'
+
+                    incoming_calls[result['result']['Linkedid']] += "/event/" \
+                                                                    + event_name[result['result']['Linkedid']] \
+                                                                    + " ///DELIMITER/// " \
+                                                                    + "/status/" \
+                                                                    + dial_status[result['result']['Linkedid']] \
+                                                                    + " ///DELIMITER/// " \
+                                                                    + "/time/" \
+                                                                    + event_timestamp[result['result']['Linkedid']] \
+                                                                    + " ///DELIMITER/// "
+                    if settings.DEBUG:
+                        print(str(datetime.datetime.now().strftime(
+                            "%Y-%m-%d %M:%S -- ")) + "DEBUG: CURRENT EVENT -- " + str(record))
+                    else:
+                        continue
+
+                incoming_calls[result['result']['Linkedid']] += "/event/" + "Звонок завершён" \
+                                                                + " ///DELIMITER/// " \
+                                                                + "/status/" \
+                                                                + "Звонок завершён" \
+                                                                + " ///DELIMITER/// " \
+                                                                + "/time/" \
+                                                                + str(datetime.datetime \
+                                                                      .fromtimestamp(end_timestamp[
+                                                                                         result[
+                                                                                             'result'][
+                                                                                             'Linkedid']]
+                                                                                     -
+                                                                                     start_timestamp[
+                                                                                         result[
+                                                                                             'result'][
+                                                                                             'Linkedid']])
+                                                                      .strftime("%M:%S"))
+
+                rows_split = incoming_calls[result['result']['Linkedid']].split(' ///DELIMITER/// ')
+                rows = []
+
+                for item in rows_split:
+                    if '/event/' in item:
+                        item_dict[result['result']['Linkedid']] = {"event": '', "status": '', "time": ''}
+                        item_dict[result['result']['Linkedid']]['event'] = item.replace('/event/', '').replace(
+                            '{', '').replace('}', '').replace('"', '').replace("'", '')
+
+                    elif '/status/' in item:
+                        item_dict[result['result']['Linkedid']]['status'] = item.replace('/status/', '')
+
+                    elif '/time/' in item:
+                        item_dict[result['result']['Linkedid']]['time'] = item.replace('/time/', '')
+                        rows.append(item_dict[result['result']['Linkedid']])
+
+                os.system('ls /home/fishhead/asterisk/records/ >> /dev/null')
+                if result['result']['Linkedid'] in record_name:
+                    if ("Разговор" in str(incoming_calls[result['result']['Linkedid']])) is True:
+                        if os.path.isfile('/home/fishhead/asterisk/records/' +
+                                          str(record_name[result['result']['Linkedid']])):
+                            record[result['result']['Linkedid']] = {"file": open(
+                                '/home/fishhead/asterisk/records/' + str(
+                                    record_name[result['result']['Linkedid']]),
+                                'rb')}
+
+                            api_upload_file = requests.post(settings.elma_settings['link']
+                                                            + 'pub/v1/disk/directory/'
+                                                            + settings.elma_settings[
+                                                                'directory_id'] + '/upload',
+                                                            files=record[result['result']['Linkedid']],
+                                                            headers={
+                                                                'X-Token': settings.elma_settings['token'],
+                                                            })
+
+                            file_id[result['result']['Linkedid']] = json.loads(api_upload_file.content)['file'][
+                                '__id']
+                            if settings.DEBUG:
+                                print(str(datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %M:%S -- ")) + "DEBUG: FILE CREATE -- " + str(
+                                    api_upload_file.content))
                             else:
-                                event_name[result['result']['Linkedid']] = 'Звонок к оператору ' \
-                                                                           + str(result['result']['ConnectedLineName'])
-                                dial_status[result['result']['Linkedid']] = 'Оператор занят'
-                                if settings.DEBUG:
-                                    print("DEBUG: UNKNOWN STATUS >> DEFAULT USED: " + str(result))
-                                else:
-                                    continue
-
-                        if 'Callback' in str(result['result'].values()):
-                            dial_status[result['result']['Linkedid']] = 'Клиент оставил просьбу перезвонить'
-
-                        incoming_calls[result['result']['Linkedid']] += "/event/" \
-                                                                        + event_name[result['result']['Linkedid']] \
-                                                                        + " ///DELIMITER/// " \
-                                                                        + "/status/" + str(
-                            dial_status[result['result']['Linkedid']]) \
-                                                                        + " ///DELIMITER/// " \
-                                                                        + "/time/" \
-                                                                        + datetime.datetime.fromtimestamp(
-                            event_timestamp[result['result']['Linkedid']]
-                            - start_timestamp[result['result']['Linkedid']]) \
-                                                                            .strftime('%M:%S') \
-                                                                        + " ///DELIMITER/// "
-
-                    if result['result']['Exten'] == 'h' and \
-                            ('Hangup' in result['result'].values() or
-                             'QueueMemberStatus' in result['result'].values()) is True and \
-                            result['result']['Linkedid'] in incoming_calls:
-
-                        employers = settings.get_employers_list()
+                                continue
+                        else:
+                            file_id[result['result']['Linkedid']] = 'NONE'
+                            if settings.DEBUG:
+                                print(str(datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %M:%S -- ")) + "DEBUG: RECORD FILE NOT FOUND")
+                            else:
+                                continue
+                    else:
+                        file_id[result['result']['Linkedid']] = 'MISSED'
                         if settings.DEBUG:
-                            print("DEBUG: EMPLOYERS LIST: " + str(employers))
+                            print(str(datetime.datetime.now().strftime(
+                                "%Y-%m-%d %M:%S -- ")) + "DEBUG: MISSED CALL, NO FILE UPLOADS NEEDED")
                         else:
                             continue
 
-                        end_timestamp[result['result']['Linkedid']] = int(str(result['result']['Timestamp']) \
-                                                                          .split('.')[0])
-                        timestamp_finished_call = datetime.datetime \
-                            .fromtimestamp(float(result['result']['Timestamp'])) \
-                            .strftime("%H:%M:%S")
-
-                        if result['result']['Linkedid'] in dial_status:
-                            if 'перезвонить' in str(dial_status[result['result']['Linkedid']]):
-                                dial_status[result['result']['Linkedid']] = 'Клиент оставил просьбу перезвонить'
-
-                        if 'Callback' in str(result['result'].values()):
-                            dial_status[result['result']['Linkedid']] = 'Клиент оставил просьбу перезвонить'
-                        else:
-                            dial_status[result['result']['Linkedid']] = 'Конец звонка'
-
-                        if 'перезвонить' in str(dial_status[result['result']['Linkedid']]):
-                            operator[result['result']['Linkedid']] = ['Callback', 'Callback']
-
-                        if len(str(result['result']['ConnectedLineNum'])) <= 3 or \
-                                len(str(result['result']['CallerIDNum'])) <= 3:
-                            for number in employers:
-                                if str(number['number']) == str(result['result']['ConnectedLineNum']):
-                                    operator[result['result']['Linkedid']] = [result['result']['ConnectedLineNum'],
-                                                                              number['name']]
-                                    if '<unknown>' in result['result']['CallerIDName']:
-                                        operator[result['result']['Linkedid']] = [result['result']['ConnectedLineNum'],
-                                                                                  number['name']]
-                                    if settings.DEBUG:
-                                        print("DEBUG: OPERATOR -- " + str(operator[result['result']['Linkedid']]))
-                                    else:
-                                        continue
-                                    break
-                                if str(number['number']) == str(result['result']['CallerIDNum']):
-                                    operator[result['result']['Linkedid']] = [result['result']['CallerIDNum'],
-                                                                              number['name']]
-                                    if '<unknown>' in result['result']['ConnectedLineName']:
-                                        operator[result['result']['Linkedid']] = [result['result']['CallerIDNum'],
-                                                                                  number['name']]
-                                    if settings.DEBUG:
-                                        print("DEBUG: OPERATOR -- " + str(operator[result['result']['Linkedid']]))
-                                    else:
-                                        continue
-                                    break
-
-                        incoming_calls[result['result']['Linkedid']] += "/event/" + "Звонок завершён" \
-                                                                        + " ///DELIMITER/// " \
-                                                                        + "/status/" \
-                                                                        + dial_status[result['result']['Linkedid']] \
-                                                                        + " ///DELIMITER/// " \
-                                                                        + "/time/" + str(datetime.datetime \
-                                                                                         .fromtimestamp(end_timestamp[
-                                                                                                            result[
-                                                                                                                'result'][
-                                                                                                                'Linkedid']]
-                                                                                                        -
-                                                                                                        start_timestamp[
-                                                                                                            result[
-                                                                                                                'result'][
-                                                                                                                'Linkedid']])
-                                                                                         .strftime("%M:%S"))
-
-                        rows_split = incoming_calls[result['result']['Linkedid']].split(' ///DELIMITER/// ')
-                        rows = []
-
-                        for item in rows_split:
-                            if '/event/' in item:
-                                item_dict[result['result']['Linkedid']] = {"event": '', "status": '', "time": ''}
-                                item_dict[result['result']['Linkedid']]['event'] = item.replace('/event/', '').replace(
-                                    '{', '').replace('}', '').replace('"', '').replace("'", '')
-
-                            elif '/status/' in item:
-                                item_dict[result['result']['Linkedid']]['status'] = item.replace('/status/', '')
-
-                            elif '/time/' in item:
-                                item_dict[result['result']['Linkedid']]['time'] = item.replace('/time/', '')
-                                rows.append(item_dict[result['result']['Linkedid']])
-
-                        os.system('ls /home/fishhead/asterisk/records/ >> /dev/null')
-                        if result['result']['Linkedid'] in record_name:
-                            if ("Разговор" in str(incoming_calls[result['result']['Linkedid']])) is True:
-                                if os.path.isfile('/home/fishhead/asterisk/records/' +
-                                                  str(record_name[result['result']['Linkedid']])):
-                                    record[result['result']['Linkedid']] = {"file": open(
-                                        '/home/fishhead/asterisk/records/' + str(
-                                            record_name[result['result']['Linkedid']]),
-                                        'rb')}
-
-                                    api_upload_file = requests.post(settings.elma_settings['link']
-                                                                    + 'pub/v1/disk/directory/'
-                                                                    + settings.elma_settings[
-                                                                        'directory_id'] + '/upload',
-                                                                    files=record[result['result']['Linkedid']],
-                                                                    headers={
-                                                                        'X-Token': settings.elma_settings['token'],
-                                                                    })
-
-                                    file_id[result['result']['Linkedid']] = json.loads(api_upload_file.content)['file'][
-                                        '__id']
-                                    if settings.DEBUG:
-                                        print("DEBUG: FILE CREATE -- " + str(api_upload_file.content))
-                                    else:
-                                        continue
-                                else:
-                                    file_id[result['result']['Linkedid']] = 'NONE'
-                                    if settings.DEBUG:
-                                        print("DEBUG: RECORD FILE NOT FOUND")
-                                    else:
-                                        continue
-                            else:
-                                file_id[result['result']['Linkedid']] = 'MISSED'
-                                if settings.DEBUG:
-                                    print("DEBUG: MISSED CALL, NO FILE UPLOADS NEEDED")
-                                else:
-                                    continue
-
+                if result['result']['Linkedid'] in lid:
+                    if lid[result['result']['Linkedid']] != '':
                         if ('NONE' in file_id[result['result']['Linkedid']]) is False \
                                 and ('MISSED' in file_id[result['result']['Linkedid']]) is False:
+
+                            payload[result['result']['Linkedid']] = {"context": {
+                                "status_zvonka": [{"code": "otvechen", "name": "📥Отвечен"}],
+                                "type": [{"code": "vkhodyashii", "name": "Входящий"}],
+                                "__name": str(client_number[result['result']['Linkedid']]),
+                                "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
+                                "poslednii_operator": operator[result['result']['Linkedid']][1],
+                                "abonent": str(subscriber_name[result['result']['Linkedid']]),
+                                "record": [file_id[result['result']['Linkedid']]],
+                                "svyazannye_lidy": [lid[result['result']['Linkedid']][0]],
+                                "call_logs":
+                                    {
+                                        "rows": rows
+                                    }
+                            }
+                            }
+                        else:
+                            payload[result['result']['Linkedid']] = {"context": {
+                                "status_zvonka": [{"code": "ne_otvechen", "name": "🔻Не отвечен"}],
+                                "type": [{"code": "vkhodyashii", "name": "Входящий"}],
+                                "__name": str(client_number[result['result']['Linkedid']]),
+                                "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
+                                "poslednii_operator": operator[result['result']['Linkedid']][1],
+                                "abonent": str(subscriber_name[result['result']['Linkedid']]),
+                                "svyazannye_lidy": [lid[result['result']['Linkedid']][0]],
+                                "call_logs":
+                                    {
+                                        "   rows": rows
+                                    }
+                            }
+                            }
+                    else:
+                        if ('NONE' in file_id[result['result']['Linkedid']]) is False \
+                                and ('MISSED' in file_id[result['result']['Linkedid']]) is False:
+
                             payload[result['result']['Linkedid']] = {"context": {
                                 "status_zvonka": [{"code": "otvechen", "name": "📥Отвечен"}],
                                 "type": [{"code": "vkhodyashii", "name": "Входящий"}],
@@ -400,38 +384,43 @@ while True:
                             }
                             }
 
-                        api_create_object = requests.post(settings.elma_settings['link'] + 'pub/v1/app/'
-                                                          + settings.elma_settings['namespace'] + '/'
-                                                          + settings.elma_settings['incoming_calls'] + '/create',
-                                                          data=json.dumps(payload[result['result']['Linkedid']]),
-                                                          headers={
-                                                              'X-Token': settings.elma_settings['token'],
-                                                          })
+                api_create_object = requests.post(settings.elma_settings['link'] + 'pub/v1/app/'
+                                                  + settings.elma_settings['namespace'] + '/'
+                                                  + settings.elma_settings['incoming_calls'] + '/create',
+                                                  data=json.dumps(payload[result['result']['Linkedid']]),
+                                                  headers={
+                                                      'X-Token': settings.elma_settings['token'],
+                                                  })
 
-                        incoming_calls.pop(result['result']['Linkedid'], None)
-                        client_number.pop(result['result']['Linkedid'], None)
-                        connected_line.pop(result['result']['Linkedid'], None)
-                        end_timestamp.pop(result['result']['Linkedid'], None)
-                        start_timestamp.pop(result['result']['Linkedid'], None)
-                        event_timestamp.pop(result['result']['Linkedid'], None)
-                        variables.pop(result['result']['Linkedid'], None)
-                        item_dict.pop(result['result']['Linkedid'], None)
-                        subscriber_name.pop(result['result']['Linkedid'], None)
-                        start_timestamp.pop(result['result']['Linkedid'], None)
-                        connected_line.pop(result['result']['Linkedid'], None)
-                        end_timestamp.pop(result['result']['Linkedid'], None)
-                        event_timestamp.pop(result['result']['Linkedid'], None)
-                        event_name.pop(result['result']['Linkedid'], None)
-                        dial_status.pop(result['result']['Linkedid'], None)
-                        file_id.pop(result['result']['Linkedid'], None)
-                        record.pop(result['result']['Linkedid'], None)
-                        record_name.pop(result['result']['Linkedid'], None)
-                        payload.pop(result['result']['Linkedid'], None)
+                incoming_calls.pop(result['result']['Linkedid'], None)
+                client_number.pop(result['result']['Linkedid'], None)
+                connected_line.pop(result['result']['Linkedid'], None)
+                end_timestamp.pop(result['result']['Linkedid'], None)
+                start_timestamp.pop(result['result']['Linkedid'], None)
+                event_timestamp.pop(result['result']['Linkedid'], None)
+                variables.pop(result['result']['Linkedid'], None)
+                item_dict.pop(result['result']['Linkedid'], None)
+                subscriber_name.pop(result['result']['Linkedid'], None)
+                start_timestamp.pop(result['result']['Linkedid'], None)
+                connected_line.pop(result['result']['Linkedid'], None)
+                end_timestamp.pop(result['result']['Linkedid'], None)
+                event_timestamp.pop(result['result']['Linkedid'], None)
+                event_name.pop(result['result']['Linkedid'], None)
+                dial_status.pop(result['result']['Linkedid'], None)
+                file_id.pop(result['result']['Linkedid'], None)
+                record.pop(result['result']['Linkedid'], None)
+                record_name.pop(result['result']['Linkedid'], None)
+                payload.pop(result['result']['Linkedid'], None)
+                login.pop(result['result']['Linkedid'], None)
+                lid.pop(result['result']['Linkedid'], None)
+                file_id.pop(result['result']['Linkedid'], None)
 
-                        if settings.DEBUG:
-                            print("DEBUG: API RESPONSE -- " + str(api_create_object.content))
-                        else:
-                            continue
+                if settings.DEBUG:
+                    print(str(datetime.datetime.now().strftime(
+                        "%Y-%m-%d %M:%S -- ")) + "DEBUG: API RESPONSE -- " + str(
+                        api_create_object.content.decode('utf-8')))
+                else:
+                    continue
 
             # OUTGOING CALLS
 
@@ -465,7 +454,8 @@ while True:
                                 client_number[result['result']['Linkedid']]) \
                                                                         + '.wav'
                             if settings.DEBUG:
-                                print('DEBUG: OUTGOING CALL STARTED WITH VALUES: \nCLIENT NUM: '
+                                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                      + 'DEBUG: OUTGOING CALL STARTED WITH VALUES: \nCLIENT NUM: '
                                       + client_number[result['result']['Linkedid']] + "\nRECORD NAME: "
                                       + record_name[result['result']['Linkedid']])
 
@@ -475,7 +465,7 @@ while True:
                     if ('DialBegin' in result['result']['Event']) is False:
 
                         if result['result']['Exten'] != 'h' and \
-                                ('Hangup' in result['result'].values()) is False and \
+                                ('Hangup' in str(result['result'].values())) is False and \
                                 ('QueueMemberStatus' in result['result'].values()) is False:
 
                             timestamp_outgoing_events = datetime.datetime.fromtimestamp(
@@ -506,7 +496,9 @@ while True:
                                                                            + client_number[result['result']['Linkedid']]
                                 dial_status[result['result']['Linkedid']] = 'Ожидание соединения'
                                 if settings.DEBUG:
-                                    print("DEBUG: UNKNOWN STATUS >> DEFAULT USED: " + str(result))
+                                    print(str(datetime.datetime.now().strftime(
+                                        "%Y-%m-%d %M:%S -- ")) + "DEBUG: UNKNOWN STATUS >> DEFAULT USED: " + str(
+                                        result))
                                 else:
                                     continue
 
@@ -523,12 +515,6 @@ while True:
                                                                             + " ///DELIMITER/// "
                         else:
 
-                            employers = settings.get_employers_list()
-                            if settings.DEBUG:
-                                print("DEBUG: EMPLOYERS LIST: " + str(employers))
-                            else:
-                                continue
-
                             timestamp_outgoing_finished = datetime.datetime.fromtimestamp(
                                 float(result['result']['Timestamp'])) \
                                 .strftime("%H:%M:%S")
@@ -544,27 +530,84 @@ while True:
                                                                             + end_timestamp[
                                                                                 result['result']['Linkedid']]
 
+                            employers = settings.get_employers_list()
+                            if settings.DEBUG:
+                                print(str(datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %M:%S -- ")) + "DEBUG: EMPLOYERS LIST: " + str(employers))
+                            else:
+                                continue
+
                             if len(str(result['result']['CallerIDNum'])) <= 3 or \
                                     len(str(result['result']['ConnectedLineNum'])) <= 3:
                                 for number in employers:
                                     if str(number['number']) == str(result['result']['CallerIDNum']):
                                         operator[result['result']['Linkedid']] = [result['result']['CallerIDNum'],
                                                                                   number['name']]
-                                        if settings.DEBUG:
-                                            print("DEBUG: OPERATOR: " + str(operator[result['result']['Linkedid']]))
-                                        else:
-                                            continue
                                         break
                                     if str(number['number']) == str(result['result']['ConnectedLineNum']):
                                         operator[result['result']['Linkedid']] = [result['result']['ConnectedLineNum'],
                                                                                   number['name']]
-                                        if settings.DEBUG:
-                                            print("DEBUG: OPERATOR: " + str(operator[result['result']['Linkedid']]))
-                                        else:
-                                            continue
                                         break
-                            else:
-                                operator[result['result']['Linkedid']] = [result['result']['ConnectedLineNum'], '']
+                                    else:
+                                        operator[result['result']['Linkedid']] = \
+                                            [result['result']['CallerIDNum'], ['74b8577e-d453-4b2b-898a-bc01055c2e58'],
+                                             'DEFAULT!']
+
+                                if settings.DEBUG:
+                                    print(str(datetime.datetime.now().strftime(
+                                        "%Y-%m-%d %M:%S -- ")) + "DEBUG: OPERATOR: " + str(
+                                        operator[result['result']['Linkedid']]))
+                                else:
+                                    continue
+
+                                login[result['result']['Linkedid']] = str(client_number[result['result']['Linkedid']])
+                                login[result['result']['Linkedid']] = settings.get_abills_uid(
+                                    str(login[result['result']['Linkedid']]))
+
+                                if ('NONE' in str(login[result['result']['Linkedid']])) is True:
+                                    lid[result['result']['Linkedid']] = settings.get_elma_lid_id(
+                                        str(client_number[result['result']['Linkedid']]))
+                                    if lid[result['result']['Linkedid']] == '':
+                                        subscriber_name[result['result']['Linkedid']] = "[Найти]" \
+                                                                                        + "(" \
+                                                                                        + settings.elma_settings[
+                                                                                            'lid_search'] \
+                                                                                        + client_number[
+                                                                                            result['result'][
+                                                                                                'Linkedid']] \
+                                                                                        + '"%7D' \
+                                                                                        + ")" + "  " \
+                                                                                                "" \
+                                                                                        + 'или [создать]' + "(" \
+                                                                                        + settings.elma_settings[
+                                                                                            'lid_create'] + ") лид"
+                                    else:
+                                        subscriber_name[result['result']['Linkedid']] = '[Лид: ' + \
+                                                                                        lid[result['result'][
+                                                                                            'Linkedid']][
+                                                                                            1] + ']' \
+                                                                                        + "(" + settings.elma_settings[
+                                                                                            'lid_link'] \
+                                                                                        + lid[result['result'][
+                                            'Linkedid']][0] \
+                                                                                        + "))"
+                                else:
+                                    subscriber_name[result['result']['Linkedid']] = '[Абонент: ' \
+                                                                                    + str(
+                                        login[result['result']['Linkedid']][0]) \
+                                                                                    + ", " \
+                                                                                    + str(
+                                        login[result['result']['Linkedid']][1]) \
+                                                                                    + ']' \
+                                                                                    + '(' + settings.abills_settings[
+                                                                                        'abon_link'] + str(
+                                        login[result['result']['Linkedid']][2]) + ')'
+                                    lid[result['result']['Linkedid']] = settings.get_elma_lid_id(
+                                        str(client_number[result['result']['Linkedid']]))
+                                    if lid[result['result']['Linkedid']] == '':
+                                        lid[result['result']['Linkedid']] = ''
+                                    else:
+                                        lid[result['result']['Linkedid']] = [lid[result['result']['Linkedid']][0]]
 
                             rows_split = outgoing_calls[result['result']['Linkedid']].split(' ///DELIMITER/// ')
                             rows = []
@@ -609,53 +652,96 @@ while True:
                                                 '__id']
 
                                         if settings.DEBUG:
-                                            print("DEBUG: FILE CREATE -- " + str(api_upload_file.content))
+                                            print(str(datetime.datetime.now().strftime(
+                                                "%Y-%m-%d %M:%S -- ")) + "DEBUG: FILE CREATE -- " + str(
+                                                api_upload_file.content))
                                         else:
                                             continue
                                     else:
                                         file_id[result['result']['Linkedid']] = 'NONE'
                                         if settings.DEBUG:
-                                            print("DEBUG: RECORD FILE NOT FOUND")
+                                            print(str(datetime.datetime.now().strftime(
+                                                "%Y-%m-%d %M:%S -- ")) + "DEBUG: RECORD FILE NOT FOUND")
                                         else:
                                             continue
                                 else:
                                     file_id[result['result']['Linkedid']] = 'NOANSWER'
                                     if settings.DEBUG:
-                                        print("DEBUG: DID NOT GET ANSWER, NO RECORD FILE NEEDED")
+                                        print(str(datetime.datetime.now().strftime(
+                                            "%Y-%m-%d %M:%S -- ")) + "DEBUG: DID NOT GET ANSWER, NO RECORD FILE NEEDED")
                                     else:
                                         continue
 
-                            if ('NONE' in file_id[result['result']['Linkedid']]) is False \
-                                    and ('NOANSWER' in file_id[result['result']['Linkedid']]) is False:
-                                payload[result['result']['Linkedid']] = {"context": {
-                                    "status_zvonka": [{"code": "otvechen_1", "name": "📤Отвечен"}],
-                                    "type": [{"code": "iskhodyashii", "name": "Исходящий"}],
-                                    "__name": str(client_number[result['result']['Linkedid']]),
-                                    "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
-                                    "poslednii_operator": operator[result['result']['Linkedid']][1],
-                                    "record": [file_id[result['result']['Linkedid']]],
-                                    "call_logs":
-                                        {
-                                            "rows": rows
+                            if result['result']['Linkedid'] in lid:
+                                if lid[result['result']['Linkedid']] != '':
+                                    if ('NONE' in file_id[result['result']['Linkedid']]) is False \
+                                            and ('NOANSWER' in file_id[result['result']['Linkedid']]) is False:
+                                        payload[result['result']['Linkedid']] = {"context": {
+                                            "status_zvonka": [{"code": "otvechen_1", "name": "📤Отвечен"}],
+                                            "type": [{"code": "iskhodyashii", "name": "Исходящий"}],
+                                            "__name": str(client_number[result['result']['Linkedid']]),
+                                            "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
+                                            "poslednii_operator": operator[result['result']['Linkedid']][1],
+                                            "abonent": str(subscriber_name[result['result']['Linkedid']]),
+                                            "svyazannye_lidy": [lid[result['result']['Linkedid']][0]],
+                                            "record": [file_id[result['result']['Linkedid']]],
+                                            "call_logs":
+                                                {
+                                                    "rows": rows
+                                                }
                                         }
-                                }
-                                }
-                            else:
-                                payload[result['result']['Linkedid']] = {"context": {
-                                    "status_zvonka": [{"code": "ne_otvechen_1", "name": "🔺Не отвечен"}],
-                                    "type": [{"code": "iskhodyashii", "name": "Исходящий"}],
-                                    "__name": str(client_number[result['result']['Linkedid']]),
-                                    "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
-                                    "poslednii_operator": operator[result['result']['Linkedid']][1],
-                                    "call_logs":
-                                        {
-                                            "rows": rows
                                         }
-                                }
-                                }
+                                    else:
+                                        payload[result['result']['Linkedid']] = {"context": {
+                                            "status_zvonka": [{"code": "ne_otvechen_1", "name": "🔺Не отвечен"}],
+                                            "type": [{"code": "iskhodyashii", "name": "Исходящий"}],
+                                            "__name": str(client_number[result['result']['Linkedid']]),
+                                            "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
+                                            "poslednii_operator": operator[result['result']['Linkedid']][1],
+                                            "abonent": str(subscriber_name[result['result']['Linkedid']]),
+                                            "svyazannye_lidy": [lid[result['result']['Linkedid']][0]],
+                                            "call_logs":
+                                                {
+                                                    "rows": rows
+                                                }
+                                        }
+                                        }
+                                else:
+                                    if ('NONE' in file_id[result['result']['Linkedid']]) is False \
+                                            and ('NOANSWER' in file_id[result['result']['Linkedid']]) is False:
+                                        payload[result['result']['Linkedid']] = {"context": {
+                                            "status_zvonka": [{"code": "otvechen_1", "name": "📤Отвечен"}],
+                                            "type": [{"code": "iskhodyashii", "name": "Исходящий"}],
+                                            "__name": str(client_number[result['result']['Linkedid']]),
+                                            "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
+                                            "poslednii_operator": operator[result['result']['Linkedid']][1],
+                                            "abonent": str(subscriber_name[result['result']['Linkedid']]),
+                                            "record": [file_id[result['result']['Linkedid']]],
+                                            "call_logs":
+                                                {
+                                                    "rows": rows
+                                                }
+                                        }
+                                        }
+                                    else:
+                                        payload[result['result']['Linkedid']] = {"context": {
+                                            "status_zvonka": [{"code": "ne_otvechen_1", "name": "🔺Не отвечен"}],
+                                            "type": [{"code": "iskhodyashii", "name": "Исходящий"}],
+                                            "__name": str(client_number[result['result']['Linkedid']]),
+                                            "nomer_operatora": str(operator[result['result']['Linkedid']][0]),
+                                            "poslednii_operator": operator[result['result']['Linkedid']][1],
+                                            "abonent": str(subscriber_name[result['result']['Linkedid']]),
+                                            "call_logs":
+                                                {
+                                                    "rows": rows
+                                                }
+                                        }
+                                        }
 
                             if settings.DEBUG:
-                                print("DEBUG: PAYLOAD CONTEXT: " + str(payload[result['result']['Linkedid']]))
+                                print(str(datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %M:%S -- ")) + "DEBUG: PAYLOAD CONTEXT: " + str(
+                                    payload[result['result']['Linkedid']]))
                             else:
                                 continue
                             api_create_object = requests.post(settings.elma_settings['link'] + 'pub/v1/app/'
@@ -667,7 +753,8 @@ while True:
                                                               })
 
                             if settings.DEBUG:
-                                print("DEBUG: API RESPONSE -- " + str(api_create_object.content))
+                                print(str(datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %M:%S -- ")) + "DEBUG: API RESPONSE -- " + str(api_create_object.content))
                             else:
                                 continue
 
@@ -688,16 +775,20 @@ while True:
                             event_name.pop(result['result']['Linkedid'], None)
                             dial_status.pop(result['result']['Linkedid'], None)
                             payload.pop(result['result']['Linkedid'], None)
+                            login.pop(result['result']['Linkedid'], None)
+                            lid.pop(result['result']['Linkedid'], None)
+                            file_id.pop(result['result']['Linkedid'], None)
 
-        except Exception as exception:
+        except Exception:
             if settings.DEBUG:
-                print("DEBUG: ERROR -- " + str(exception))
+                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- ")) + "DEBUG: ERROR -- " + str(Exception.with_traceback()))
                 pass
             else:
                 pass
         except json.decoder.JSONDecodeError as json_error:
             if settings.DEBUG:
-                print("DEBUG: JSON DECODER ERROR, ARGS: \n ERROR NAME: " + str(json_error)
+                print(str(datetime.datetime.now().strftime(
+                    "%Y-%m-%d %M:%S --")) + "DEBUG: JSON DECODER ERROR, ARGS: \n ERROR NAME: " + str(json_error)
                       + "\nLINE: " + str(event_string))
                 pass
             else:
