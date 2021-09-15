@@ -17,6 +17,8 @@ telnet_session.write("Action:login".encode('ascii') + b"\n"
                      + username.encode('ascii') + b"\n"
                      + secret.encode('ascii') + b"\n\n")
 
+logs = open('/var/spool/asterisk/text_logs/DEBUG.txt', 'a')
+
 current_string = ''
 result = {}
 incoming_calls = {}
@@ -82,7 +84,7 @@ while True:
 
             result = json.loads(event_string)
             if settings.DEBUG:
-                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                       + "DEBUG: CURRENT LINE -- " + str(result['result']))
             else:
                 continue
@@ -175,7 +177,7 @@ while True:
                                                                    + " ///DELIMITER/// "
 
                     if settings.DEBUG:
-                        print(str(datetime.datetime.now().strftime(
+                        logs.write(str(datetime.datetime.now().strftime(
                             "%Y-%m-%d %M:%S -- ")) + "DEBUG: INCOMING CALL STARTED WITH VALUES: \nCLIENT NUM: "
                               + client_number[result['result']['Linkedid']])
                     else:
@@ -189,7 +191,7 @@ while True:
                                                                   .split('.')[0])
                 employers = settings.get_employers_list()
                 if settings.DEBUG:
-                    print(str(datetime.datetime.now().strftime(
+                    logs.write(str(datetime.datetime.now().strftime(
                         "%Y-%m-%d %M:%S -- ")) + "DEBUG: EMPLOYERS LIST: " + str(employers))
                 else:
                     continue
@@ -211,7 +213,7 @@ while True:
                                  'DEFAULT!']
 
                     if settings.DEBUG:
-                        print(str(datetime.datetime.now().strftime(
+                        logs.write(str(datetime.datetime.now().strftime(
                             "%Y-%m-%d %M:%S -- ")) + "DEBUG: OPERATOR: " + str(
                             operator[result['result']['Linkedid']]))
                     else:
@@ -242,7 +244,7 @@ while True:
                                                                                 .split('/')[1] \
                                                                                 .split('-')[0]
                                 if settings.DEBUG:
-                                    print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                    logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                           + "DEBUG: CALL EVENT: " + str(records))
                                 else:
                                     continue
@@ -252,7 +254,7 @@ while True:
                                                                                .split('/')[1] \
                                                                                .split('-')[0]
                                 if settings.DEBUG:
-                                    print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                    logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                           + "DEBUG: ANSWERED EVENT: " + str(records))
                                 else:
                                     continue
@@ -262,7 +264,7 @@ while True:
                                                                            .split('/')[1] \
                                                                            .split('-')[0]
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                         + "DEBUG: DIAL EVENT: " + str(records))
                             else:
                                 continue
@@ -270,7 +272,7 @@ while True:
                             event_name[result['result']['Linkedid']] = 'Абонент был переведён'
                             dial_status[result['result']['Linkedid']] = 'Перевод звонка'
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                       + "DEBUG: DIAL EVENT: " + str(records))
                             else:
                                 continue
@@ -278,7 +280,7 @@ while True:
                             if records['lastapp'] != 'Set':
                                 event_name[result['result']['Linkedid']] = 'Неизвестное событие'
                                 if settings.DEBUG:
-                                    print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                    logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                         + "DEBUG: UNKNOWN EVENT, NEED TO CHECK: " + str(records))
                                 else:
                                     continue
@@ -308,14 +310,14 @@ while True:
                         print('RECORD NAME FIELD')
                 if settings.DEBUG:
                     if result['result']['Linkedid'] in record_name:
-                        print(str(datetime.datetime.now().strftime(
+                        logs.write(str(datetime.datetime.now().strftime(
                             "%Y-%m-%d %M:%S -- ")) + "DEBUG: RECORD FILE NAME -- " +
                                 str(record_name[result['result']['Linkedid']]))
                     else:
                         continue
 
                 if settings.DEBUG:
-                    print(str(datetime.datetime.now().strftime(
+                    logs.write(str(datetime.datetime.now().strftime(
                         "%Y-%m-%d %M:%S -- ")) + "DEBUG: CURRENT EVENT DICT STATE -- " +
                             str(incoming_calls[result['result']['Linkedid']]))
                 else:
@@ -370,7 +372,7 @@ while True:
                             file_id[result['result']['Linkedid']] = json.loads(api_upload_file.content)['file'][
                                 '__id']
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime(
+                                logs.write(str(datetime.datetime.now().strftime(
                                     "%Y-%m-%d %M:%S -- ")) + "DEBUG: FILE CREATE -- " + str(
                                     api_upload_file.content))
                             else:
@@ -378,14 +380,14 @@ while True:
                         else:
                             file_id[result['result']['Linkedid']] = 'NONE'
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime(
+                                logs.write(str(datetime.datetime.now().strftime(
                                     "%Y-%m-%d %M:%S -- ")) + "DEBUG: RECORD FILE NOT FOUND")
                             else:
                                 continue
                     else:
                         file_id[result['result']['Linkedid']] = 'MISSED'
                         if settings.DEBUG:
-                            print(str(datetime.datetime.now().strftime(
+                            logs.write(str(datetime.datetime.now().strftime(
                                 "%Y-%m-%d %M:%S -- ")) + "DEBUG: MISSED CALL, NO FILE UPLOADS NEEDED")
                         else:
                             continue
@@ -393,7 +395,7 @@ while True:
                 else:
                     file_id[result['result']['Linkedid']] = 'NONE'
                     if settings.DEBUG:
-                        print(str(datetime.datetime.now().strftime(
+                        logs.write(str(datetime.datetime.now().strftime(
                             "%Y-%m-%d %M:%S -- ")) + "DEBUG: RECORD FILE NOT FOUND")
                     else:
                         continue
@@ -498,7 +500,7 @@ while True:
                 file_id.pop(result['result']['Linkedid'], None)
 
                 if settings.DEBUG:
-                    print(str(datetime.datetime.now().strftime(
+                    logs.write(str(datetime.datetime.now().strftime(
                         "%Y-%m-%d %M:%S -- ")) + "DEBUG: API RESPONSE -- " + str(
                         api_create_object.content.decode('utf-8')))
                 else:
@@ -530,7 +532,7 @@ while True:
 
 
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                       + 'DEBUG: OUTGOING CALL STARTED WITH VALUES: \nCLIENT NUM: '
                                       + client_number[result['result']['Linkedid']])
 
@@ -553,7 +555,7 @@ while True:
 
                             employers = settings.get_employers_list()
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime(
+                                logs.write(str(datetime.datetime.now().strftime(
                                     "%Y-%m-%d %M:%S -- ")) + "DEBUG: EMPLOYERS LIST: " + str(employers))
                             else:
                                 continue
@@ -575,7 +577,7 @@ while True:
                                              'DEFAULT!']
 
                                 if settings.DEBUG:
-                                    print(str(datetime.datetime.now().strftime(
+                                    logs.write(str(datetime.datetime.now().strftime(
                                         "%Y-%m-%d %M:%S -- ")) + "DEBUG: OPERATOR: " + str(
                                         operator[result['result']['Linkedid']]))
                                 else:
@@ -656,7 +658,7 @@ while True:
                                             event_name[result['result']['Linkedid']] = 'Звонок абоненту, оператор - ' \
                                                                                        + str(records['number'])
                                             if settings.DEBUG:
-                                                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                                       + "DEBUG: CALL EVENT: " + str(records))
                                             else:
                                                 continue
@@ -664,7 +666,7 @@ while True:
                                             event_name[result['result']['Linkedid']] = 'Разговор с абонентом, оператор - ' \
                                                                                        + str(records['number'])
                                             if settings.DEBUG:
-                                                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                                       + "DEBUG: ANSWERED EVENT: " + str(records))
                                             else:
                                                 continue
@@ -676,7 +678,7 @@ while True:
                                             event_name[result['result']['Linkedid']] = 'Звонок абоненту, оператор - ' \
                                                                                     + str(records['number'])
                                         if settings.DEBUG:
-                                            print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                            logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                                   + "DEBUG: DIAL EVENT: " + str(records))
                                         else:
                                             continue
@@ -684,7 +686,7 @@ while True:
                                         if len(str(records['number'])) <= 3:
                                             event_name[result['result']['Linkedid']] = 'Неизвестное событие'
                                             if settings.DEBUG:
-                                                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
+                                                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- "))
                                                     + "DEBUG: UNKNOWN EVENT, NEED TO CHECK: " + str(records))
                                             else:
                                                 continue
@@ -715,14 +717,14 @@ while True:
                                         record_name[result['result']['Linkedid']] = 'NO RECORD FILE'
 
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime(
+                                logs.write(str(datetime.datetime.now().strftime(
                                     "%Y-%m-%d %M:%S -- ")) + "DEBUG: RECORD FILE NAME -- " +
                                       str(record_name[result['result']['Linkedid']]))
                             else:
                                 continue
 
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime(
+                                logs.write(str(datetime.datetime.now().strftime(
                                     "%Y-%m-%d %M:%S -- ")) + "DEBUG: CURRENT EVENT DICT STATE -- " +
                                       str(outgoing_calls[result['result']['Linkedid']]))
                             else:
@@ -779,7 +781,7 @@ while True:
                                                 '__id']
 
                                         if settings.DEBUG:
-                                            print(str(datetime.datetime.now().strftime(
+                                            logs.write(str(datetime.datetime.now().strftime(
                                                 "%Y-%m-%d %M:%S -- ")) + "DEBUG: FILE CREATE -- " + str(
                                                 api_upload_file.content))
                                         else:
@@ -787,14 +789,14 @@ while True:
                                     else:
                                         file_id[result['result']['Linkedid']] = 'NONE'
                                         if settings.DEBUG:
-                                            print(str(datetime.datetime.now().strftime(
+                                            logs.write(str(datetime.datetime.now().strftime(
                                                 "%Y-%m-%d %M:%S -- ")) + "DEBUG: RECORD FILE NOT FOUND")
                                         else:
                                             continue
                                 else:
                                     file_id[result['result']['Linkedid']] = 'NOANSWER'
                                     if settings.DEBUG:
-                                        print(str(datetime.datetime.now().strftime(
+                                        logs.write(str(datetime.datetime.now().strftime(
                                             "%Y-%m-%d %M:%S -- ")) + "DEBUG: DID NOT GET ANSWER, NO RECORD FILE NEEDED")
                                     else:
                                         continue
@@ -866,7 +868,7 @@ while True:
                                         }
 
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime(
+                                logs.write(str(datetime.datetime.now().strftime(
                                     "%Y-%m-%d %M:%S -- ")) + "DEBUG: PAYLOAD CONTEXT: " + str(
                                     payload[result['result']['Linkedid']]))
                             else:
@@ -880,7 +882,7 @@ while True:
                                                               })
 
                             if settings.DEBUG:
-                                print(str(datetime.datetime.now().strftime(
+                                logs.write(str(datetime.datetime.now().strftime(
                                     "%Y-%m-%d %M:%S -- ")) + "DEBUG: API RESPONSE -- " + str(api_create_object.content))
                             else:
                                 continue
@@ -908,13 +910,13 @@ while True:
 
         except Exception:
             if settings.DEBUG:
-                print(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- ")) + "DEBUG: ERROR -- " + str(
+                logs.write(str(datetime.datetime.now().strftime("%Y-%m-%d %M:%S -- ")) + "DEBUG: ERROR -- " + str(
                     Exception))
             else:
                 pass
         except json.decoder.JSONDecodeError as json_error:
             if settings.DEBUG:
-                print(str(datetime.datetime.now().strftime(
+                logs.write(str(datetime.datetime.now().strftime(
                     "%Y-%m-%d %M:%S --")) + "DEBUG: JSON DECODER ERROR, ARGS: \n ERROR NAME: " + str(json_error)
                       + "\nLINE: " + str(event_string))
             else:
