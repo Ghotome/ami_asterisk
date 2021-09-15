@@ -3,7 +3,7 @@ import json
 import mysql.connector as mysql
 import requests
 
-DEBUG = True
+DEBUG = False
 
 connection = {
     'address': '172.16.10.101',
@@ -11,12 +11,12 @@ connection = {
 }
 
 login_data = {
-    'username': 'test',
+    'username': 'test1',
     'secret': '11223344'
 }
 
 elma_settings = {
-    'link': 'https://elma.dianet.com.ua/',
+    'link': 'https://elma.dianet.online/',
     'token': '05fac167-689a-476d-9e7e-d52c14890dd7',
     'namespace': 'CRM_Dianet',
     'outgoing_calls': 'calls_all',
@@ -24,13 +24,14 @@ elma_settings = {
     'lidy': 'lidy',
     'directory_id': '796115c4-90a8-4962-93a8-477e90fecae0',
     'employers': '_system_catalogs/sotrudniki',
-    'lid_link': 'https://elma.dianet.com.ua/CRM_Dianet/lidy(p:item/CRM_Dianet/lidy/',
-    'lid_create': 'https://elma.dianet.com.ua/CRM_Dianet/lidy(p:item/CRM_Dianet/lidy)',
-    'lid_search': 'https://elma.dianet.com.ua/CRM_Dianet/lidy?search=%7B"simple":"'
+    'lid_link': 'https://elma.dianet.online/CRM_Dianet/lidy(p:item/CRM_Dianet/lidy/',
+    'lid_create': 'https://elma.dianet.online/CRM_Dianet/lidy(p:item/CRM_Dianet/lidy)',
+    'lid_search': 'https://elma.dianet.online/CRM_Dianet/lidy?search=%7B"simple":"'
 }
 
+
 abills_settings = {
-    'abon_link': 'https://abill.dianet.com.ua:9443/admin/index.cgi?index=15&UID='
+    'abon_link': 'https://abill.dianet.online:9443/admin/index.cgi?index=15&UID='
 }
 
 mysql_settings = {
@@ -50,7 +51,7 @@ def get_cdr_records(linkedid):
     keys = ['number', 'login', 'channel', 'dst_channel', 'lastapp', 'latency', 'status', 'record_name']
     cursor = db.cursor()
     cursor.execute(
-        'select src, clid, channel, dstchannel, lastapp, billsec, disposition, recordingpath from cdr where linkedid ='
+        'select src, clid, channel, dstchannel, lastapp, duration, disposition, recordingpath from cdr where linkedid ='
         + str(linkedid))
     values = cursor.fetchall()
     for value in values:
@@ -63,7 +64,7 @@ def get_employers_list():
     var = {"size": 100}
     employers = []
 
-    employers_list = requests.post('https://elma.dianet.com.ua/pub/v1/app/_system_catalogs/sotrudniki/list',
+    employers_list = requests.post('https://elma.dianet.online/pub/v1/app/_system_catalogs/sotrudniki/list',
                                    data=json.dumps(var),
                                    headers={
                                            'X-Token': elma_settings['token']
@@ -75,9 +76,8 @@ def get_employers_list():
 
     return employers
 
-
 def get_abills_uid(serching_param):
-    link = "https://abill.dianet.com.ua:9443/admin/index.cgi?qindex=7&search=1&type=10&header=1&json=1&LOGIN=" + \
+    link = "https://abill.dianet.online:9443/admin/index.cgi?qindex=7&search=1&type=10&header=1&json=1&LOGIN=" + \
            str(serching_param) + "&EXPORT_CONTENT=USERS_LIST&API_KEY=sdfgljkshdfghjdf2345js"
 
     user = ''
@@ -106,7 +106,7 @@ def get_elma_lid_id(number):
     }
     lids = ''
 
-    get_lids_list = requests.post('https://elma.dianet.com.ua/pub/v1/app/CRM_Dianet/lidy/list',
+    get_lids_list = requests.post('https://elma.dianet.online/pub/v1/app/CRM_Dianet/lidy/list',
                                   data=json.dumps(var),
                                   headers={
                                       'X-Token': elma_settings['token']
