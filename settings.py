@@ -2,6 +2,7 @@ import json
 
 import mysql.connector as mysql
 import requests
+import telnetlib
 
 DEBUG = True
 
@@ -50,11 +51,12 @@ def get_cdr_records(linkedid):
     keys = ['number', 'login', 'channel', 'dst_channel', 'lastapp', 'latency', 'status', 'record_name']
     cursor = db.cursor()
     cursor.execute(
-        'select src, clid, channel, dstchannel, lastapp, billsec, disposition, recordingpath from cdr where linkedid ='
+        'select src, clid, channel, dstchannel, lastapp, billsec, disposition, recordingpath from cdr where linkedid like '
         + str(linkedid))
     values = cursor.fetchall()
     for value in values:
         result.append(dict(zip(keys, value)))
+    db.close()
 
     return result
 
@@ -119,3 +121,5 @@ def get_elma_lid_id(number):
             pass
 
     return lids
+
+
