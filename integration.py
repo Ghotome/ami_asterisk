@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import settings
 import datetime
 import time
 import json
@@ -7,9 +8,20 @@ import re
 import telnetlib
 import traceback
 import requests
-import settings
 
 logs = ''
+if settings.DEBUG:
+    logs = open(settings.log_file, 'a')
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: LOG FILE -- " + settings.log_file)
+
+telnet_session = telnetlib.Telnet(settings.connection['address'], settings.connection['port'])
+username = "Username: " + settings.login_data['username']
+secret = "Secret: " + settings.login_data['secret']
+ami_login = telnet_session.write("Action:login".encode('ascii') + b"\n"
+                     + username.encode('ascii') + b"\n"
+                     + secret.encode('ascii') + b"\n\n")
+
 current_string = ''
 result = {}
 incoming_calls = {}
@@ -41,16 +53,7 @@ lid = {}
 cdr_result = {}
 current_operator = {}
 
-
-telnet_session = telnetlib.Telnet(settings.connection['address'], settings.connection['port'])
-username = "Username: " + settings.login_data['username']
-secret = "Secret: " + settings.login_data['secret']
-ami_login = telnet_session.write("Action:login".encode('ascii') + b"\n"
-                     + username.encode('ascii') + b"\n"
-                     + secret.encode('ascii') + b"\n\n")
-
 if settings.DEBUG:
-    logs = open(settings.log_file, 'a')
     logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
                + "DEBUG: TELNET SESSION WITH ATTRIBUTES: "
                + settings.connection['address']

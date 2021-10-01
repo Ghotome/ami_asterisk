@@ -10,7 +10,7 @@ logs = ''
 if DEBUG:
     logs = open(log_file, 'a')
     logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
-               + "DEBUG: LOG FILE -- " + log_file)
+               + "DEBUG: SETTINGS LOG FILE -- " + log_file)
 if DEBUG:
     logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
                + "DEBUG: SETTINGS FILE INITIALIZATION")
