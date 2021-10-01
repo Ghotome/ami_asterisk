@@ -50,7 +50,7 @@ ami_login = telnet_session.write("Action:login".encode('ascii') + b"\n"
                      + secret.encode('ascii') + b"\n\n")
 
 if settings.DEBUG:
-    logs = open('/home/fishhead/Desktop/DEBUG.txt', 'a')
+    logs = open('/var/log/asterisk/call_logs/DEBUG.txt', 'a')
 
 while True:
     event_string = ''
