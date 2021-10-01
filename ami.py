@@ -50,7 +50,12 @@ ami_login = telnet_session.write("Action:login".encode('ascii') + b"\n"
                      + secret.encode('ascii') + b"\n\n")
 
 if settings.DEBUG:
-    logs = open('/var/log/asterisk/call_logs/DEBUG.txt', 'a')
+    logs = open(settings.log_file, 'a')
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: TELNET SESSION WITH ATTRIBUTES: "
+               + settings.connection['address']
+               + " "
+               + str(settings.connection['port']))
 
 while True:
     event_string = ''
@@ -139,11 +144,9 @@ while True:
                                                                             + settings.elma_settings[
                                                                                 'lid_search'] \
                                                                             + client_number[
-                                                                                result['result']['Linkedid']] \
-                                                                            + '"%7D' \
-                                                                            + ")" + "  " \
-                                                                                    "" \
-                                                                            + 'или [создать]' + "(" \
+                                                                                result['result']['Linkedid']] + '"%7D' \
+                                                                            + ")" \
+                                                                            + ' или [создать]' + "(" \
                                                                             + settings.elma_settings[
                                                                                 'lid_create'] + ") лид"
                         else:

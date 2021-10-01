@@ -1,10 +1,19 @@
 import json
-
+import datetime
 import mysql.connector as mysql
 import requests
-import telnetlib
 
 DEBUG = True
+log_file = '/var/log/asterisk/call_logs/DEBUG.txt'
+logs = ''
+
+if DEBUG:
+    logs = open(log_file, 'a')
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: LOG FILE -- " + log_file)
+if DEBUG:
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: SETTINGS FILE INITIALIZATION")
 
 connection = {
     'address': '172.16.10.101',
@@ -15,6 +24,10 @@ login_data = {
     'username': 'test',
     'secret': '11223344'
 }
+
+if DEBUG:
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: SETTINGS -- AMI CONNECTION SECTOR INITIALIZED")
 
 elma_settings = {
     'link': 'https://elma.dianet.com.ua/',
@@ -30,9 +43,17 @@ elma_settings = {
     'lid_search': 'https://elma.dianet.com.ua/CRM_Dianet/lidy?search=%7B"simple":"'
 }
 
+if DEBUG:
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: SETTINGS -- ELMA CONNECTION AND LINKS SECTOR INITIALIZED")
+
 abills_settings = {
     'abon_link': 'https://abill.dianet.com.ua:9443/admin/index.cgi?index=15&UID='
 }
+
+if DEBUG:
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: SETTINGS -- ABILLS SECTOR INITIALIZED")
 
 mysql_settings = {
     'host': '172.16.10.101',
@@ -40,6 +61,10 @@ mysql_settings = {
     'secret': 'fkxK7JveMdvtp8',
     'db': 'asteriskcdrdb'
 }
+
+if DEBUG:
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: SETTINGS -- MYSQL DB SECTOR INITIALIZED")
 
 
 def get_cdr_records(linkedid):
@@ -123,3 +148,9 @@ def get_elma_lid_id(number):
     return lids
 
 
+if DEBUG:
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: SETTINGS -- FUNCTIONS SECTOR INITIALIZED")
+    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
+               + "DEBUG: SETTINGS FILE INITIALIZED")
+    logs.close()
