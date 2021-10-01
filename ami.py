@@ -52,10 +52,6 @@ ami_login = telnet_session.write("Action:login".encode('ascii') + b"\n"
 if settings.DEBUG:
     logs = open('/home/fishhead/Desktop/DEBUG.txt', 'a')
 
-if settings.DEBUG:
-    logs.write(str("\n\n" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S -- "))
-                           + "DEBUG: SEND AMI LOGIN MESSAGE -- " + str(ami_login))
-
 while True:
     event_string = ''
     elements_string = ''
