@@ -21,8 +21,8 @@ connection = {
 }
 
 login_data = {
-    'username': 'test',
-    'secret': '11223344'
+    'username': '',
+    'secret': ''
 }
 
 if DEBUG:
@@ -31,7 +31,7 @@ if DEBUG:
 
 elma_settings = {
     'link': 'https://elma.dianet.com.ua/',
-    'token': '05fac167-689a-476d-9e7e-d52c14890dd7',
+    'token': '',
     'namespace': 'CRM_Dianet',
     'outgoing_calls': 'calls_all',
     'incoming_calls': 'calls_all',
@@ -57,8 +57,8 @@ if DEBUG:
 
 mysql_settings = {
     'host': '172.16.10.101',
-    'user': 'ami',
-    'secret': 'fkxK7JveMdvtp8',
+    'user': '',
+    'secret': '',
     'db': 'asteriskcdrdb'
 }
 
@@ -105,7 +105,7 @@ def get_employers_list():
 
 def get_abills_uid(serching_param):
     link = "https://abill.dianet.com.ua:9443/admin/index.cgi?qindex=7&search=1&type=10&header=1&json=1&LOGIN=" + \
-           str(serching_param) + "&EXPORT_CONTENT=USERS_LIST&API_KEY=sdfgljkshdfghjdf2345js"
+           str(serching_param) + "&EXPORT_CONTENT=USERS_LIST&API_KEY="
 
     user = ''
 
